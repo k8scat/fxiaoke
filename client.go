@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"path"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -16,6 +16,8 @@ import (
 
 const (
 	BaseURL = "https://open.fxiaoke.com"
+
+	EndpointGetToken = "/cgi/corpAccessToken/get/V2"
 )
 
 var (
@@ -102,7 +104,7 @@ func (c *Client) Post(endpoint string, data map[string]interface{}, auth bool) (
 	}
 
 	var req *http.Request
-	url := path.Join(BaseURL, endpoint)
+	url := concatURL(BaseURL, endpoint)
 	req, err = http.NewRequest(http.MethodPost, url, buf)
 	if err != nil {
 		return
@@ -140,7 +142,7 @@ func (c *Client) RefreshAccessToken() error {
 	buf := &bytes.Buffer{}
 	json.NewEncoder(buf).Encode(data)
 
-	url := path.Join(BaseURL, "/cgi/corpAccessToken/get/V2")
+	url := concatURL(BaseURL, EndpointGetToken)
 	req, err := http.NewRequest(http.MethodPost, url, buf)
 	if err != nil {
 		return err
@@ -163,4 +165,11 @@ func (c *Client) RefreshAccessToken() error {
 	c.tokenExpire = gjson.Get(content, "expiresIn").Int()
 	c.tokenRefreshTime = currentTime
 	return nil
+}
+
+func concatURL(base, endpoint string) string {
+	if !strings.HasPrefix(endpoint, "/") {
+		endpoint = fmt.Sprintf("/%s", endpoint)
+	}
+	return fmt.Sprintf("%s%s", base, endpoint)
 }
