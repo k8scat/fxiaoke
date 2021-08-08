@@ -8,7 +8,7 @@ Unofficial Go SDK for [the fxiaoke.com OpenAPI](https://open.fxiaoke.com/wiki.ht
 go get -u github.com/k8scat/fxiaoke
 ```
 
-## Simple demo
+## Quick start
 
 ```go
 package main
@@ -30,12 +30,10 @@ func main() {
         panic(err)
     }
 
-    openUserID := ""
-    user, err := client.GetUserByOpenID(openUserID)
+    user, err := client.GetUserByOpenID(userID)
     if err != nil {
         panic(err)
     }
     fmt.Printf("%+v", user)
 }
-
 ```

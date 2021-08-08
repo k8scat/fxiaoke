@@ -17,7 +17,8 @@ import (
 const (
 	BaseURL = "https://open.fxiaoke.com"
 
-	EndpointGetToken = "/cgi/corpAccessToken/get/V2"
+	EndpointGetToken    = "/cgi/corpAccessToken/get/V2"
+	responseSuccessCode = 0
 )
 
 var (
@@ -95,7 +96,6 @@ func (c *Client) Post(endpoint string, data map[string]interface{}, auth bool) (
 			}
 			data["corpAccessToken"] = c.token
 		}
-
 		buf = &bytes.Buffer{}
 		err = json.NewEncoder(buf).Encode(data)
 		if err != nil {
@@ -109,6 +109,7 @@ func (c *Client) Post(endpoint string, data map[string]interface{}, auth bool) (
 	if err != nil {
 		return
 	}
+	req.Header.Add("Content-Type", "application/json")
 
 	var resp *http.Response
 	resp, err = c.client.Do(req)
@@ -117,13 +118,13 @@ func (c *Client) Post(endpoint string, data map[string]interface{}, auth bool) (
 	}
 	defer resp.Body.Close()
 	var b []byte
-	b, err = ioutil.ReadAll(req.Body)
+	b, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return
 	}
 	content = string(b)
-	if resp.StatusCode != http.StatusOK || gjson.Get(content, "errorCode").Int() != 0 {
-		err = fmt.Errorf("request err: [%d] %s", resp.StatusCode, content)
+	if resp.StatusCode != http.StatusOK || gjson.Get(content, "errorCode").Int() != responseSuccessCode {
+		err = fmt.Errorf("Post %s err: %s, resp: %+v", url, content, resp)
 	}
 	return
 }
@@ -147,19 +148,20 @@ func (c *Client) RefreshAccessToken() error {
 	if err != nil {
 		return err
 	}
+	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(req.Body)
+	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
 	content := string(b)
-	if gjson.Get(content, "errorCode").Int() != 0 {
-		return fmt.Errorf("refresh corp access token failed: %s", content)
+	if resp.StatusCode != http.StatusOK || gjson.Get(content, "errorCode").Int() != responseSuccessCode {
+		return fmt.Errorf("refresh corp access token failed: %s, resp: %+v", content, resp)
 	}
 	c.token = gjson.Get(content, "corpAccessToken").String()
 	c.tokenExpire = gjson.Get(content, "expiresIn").Int()

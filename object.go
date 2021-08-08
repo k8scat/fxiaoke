@@ -38,6 +38,14 @@ const (
 	FilterOperatorNotIn      = "NIN"
 	FilterOperatorNotBetween = "NBETWEEN"
 	FilterOperatorEndWith    = "ENDWITH"
+
+	actionQuery       = "query"
+	actionGet         = "get"
+	actionInvalid     = "invalid"
+	actionChangeOwner = "changeOwner"
+	actionUpdate      = "update"
+	actionCreate      = "create"
+	actionDelete      = "delete"
 )
 
 type Object struct {
@@ -79,13 +87,8 @@ type ChangeOwnerData struct {
 
 func (c *Client) ListObjs(objType, objApiName string, searchQueryInfo *SearchQueryInfo, params map[string]interface{}) (objs []json.RawMessage, total int, err error) {
 	var endpoint string
-	switch objType {
-	case ObjTypePackage:
-		endpoint = "/cgi/crm/v2/data/query"
-	case ObjTypeCustom:
-		endpoint = "/cgi/crm/custom/v2/data/query"
-	default:
-		err = fmt.Errorf("obj type not support, objType=%s", objType)
+	endpoint, err = getEndpoint(objType, actionQuery)
+	if err != nil {
 		return
 	}
 
@@ -141,13 +144,8 @@ func (c *Client) ListAllObjs(objType, objApiName string, searchQueryInfo *Search
 
 func (c *Client) GetObjByID(objType, objApiName, id string) (obj []byte, err error) {
 	var endpoint string
-	switch objType {
-	case ObjTypePackage:
-		endpoint = "/cgi/crm/v2/data/get"
-	case ObjTypeCustom:
-		endpoint = "/cgi/crm/custom/v2/data/get"
-	default:
-		err = fmt.Errorf("obj type not support, objType=%s", objType)
+	endpoint, err = getEndpoint(objType, actionGet)
+	if err != nil {
 		return
 	}
 
@@ -171,14 +169,9 @@ func (c *Client) UpdateObj(objType string, obj map[string]interface{}, params ma
 		return fmt.Errorf("obj not valid, obj=%v", obj)
 	}
 
-	var endpoint string
-	switch objType {
-	case ObjTypePackage:
-		endpoint = "/cgi/crm/v2/data/update"
-	case ObjTypeCustom:
-		endpoint = "/cgi/crm/custom/v2/data/update"
-	default:
-		return fmt.Errorf("obj type not support, objType=%s", objType)
+	endpoint, err := getEndpoint(objType, actionUpdate)
+	if err != nil {
+		return err
 	}
 
 	data := map[string]interface{}{
@@ -189,7 +182,7 @@ func (c *Client) UpdateObj(objType string, obj map[string]interface{}, params ma
 	for k, v := range params {
 		data["data"].(map[string]interface{})[k] = v
 	}
-	_, err := c.Post(endpoint, data, true)
+	_, err = c.Post(endpoint, data, true)
 	return err
 }
 
@@ -201,14 +194,9 @@ func (c *Client) ChangeOwner(objType, objAPIName string, data []*ChangeOwnerData
 		return errors.New("objAPIName cannot be empty")
 	}
 
-	var endpoint string
-	switch objType {
-	case ObjTypePackage:
-		endpoint = "/cgi/crm/v2/data/changeOwner"
-	case ObjTypeCustom:
-		endpoint = "/cgi/crm/custom/v2/data/changeOwner"
-	default:
-		return fmt.Errorf("obj type not support: %s", objType)
+	endpoint, err := getEndpoint(objType, actionChangeOwner)
+	if err != nil {
+		return err
 	}
 
 	payload := map[string]interface{}{
@@ -217,21 +205,16 @@ func (c *Client) ChangeOwner(objType, objAPIName string, data []*ChangeOwnerData
 			"dataObjectApiName": objAPIName,
 		},
 	}
-	_, err := c.Post(endpoint, payload, true)
+	_, err = c.Post(endpoint, payload, true)
 	return err
 }
 
 // 只能删除已作废的对象
 // 该方法不支持 客户对象 中的 删除公海对象接口：https://open.fxiaoke.com/wiki.html#artiId=1258
 func (c *Client) DeleteObjs(objType, objAPIName string, idList []string) error {
-	var endpoint string
-	switch objType {
-	case ObjTypePackage:
-		endpoint = "/cgi/crm/v2/data/delete"
-	case ObjTypeCustom:
-		endpoint = "/cgi/crm/custom/v2/data/delete"
-	default:
-		return fmt.Errorf("obj type not support: %s", objType)
+	endpoint, err := getEndpoint(objType, actionDelete)
+	if err != nil {
+		return err
 	}
 
 	payload := map[string]interface{}{
@@ -240,20 +223,15 @@ func (c *Client) DeleteObjs(objType, objAPIName string, idList []string) error {
 			"dataObjectApiName": objAPIName,
 		},
 	}
-	_, err := c.Post(endpoint, payload, true)
+	_, err = c.Post(endpoint, payload, true)
 	return err
 }
 
 // 作废对象
 func (c *Client) InvalidObj(objType, objAPIName, id string) error {
-	var endpoint string
-	switch objType {
-	case ObjTypePackage:
-		endpoint = "/cgi/crm/v2/data/invalid"
-	case ObjTypeCustom:
-		endpoint = "/cgi/crm/custom/v2/data/invalid"
-	default:
-		return fmt.Errorf("obj type not support: %s", objType)
+	endpoint, err := getEndpoint(objType, actionInvalid)
+	if err != nil {
+		return err
 	}
 
 	payload := map[string]interface{}{
@@ -262,20 +240,16 @@ func (c *Client) InvalidObj(objType, objAPIName, id string) error {
 			"dataObjectApiName": objAPIName,
 		},
 	}
-	_, err := c.Post(endpoint, payload, true)
+	_, err = c.Post(endpoint, payload, true)
 	return err
 }
 
 func (c *Client) CreateObj(objType string, obj interface{}, params map[string]interface{}) (string, error) {
-	var endpoint string
-	switch objType {
-	case ObjTypeCustom:
-		endpoint = "/cgi/crm/custom/v2/data/create"
-	case ObjTypePackage:
-		endpoint = "/cgi/crm/v2/data/create"
-	default:
-		return "", fmt.Errorf("obj type not support: %s", objType)
+	endpoint, err := getEndpoint(objType, actionCreate)
+	if err != nil {
+		return "", err
 	}
+
 	data := map[string]interface{}{
 		"data": map[string]interface{}{
 			"object_data": obj,
@@ -290,4 +264,28 @@ func (c *Client) CreateObj(objType string, obj interface{}, params map[string]in
 	}
 	id := gjson.Get(raw, "dataId").String()
 	return id, err
+}
+
+func (c *Client) DescribeObj(objAPIName string, includeDetail bool) (string, error) {
+	endpoint := "/cgi/crm/v2/object/describe"
+	data := map[string]interface{}{
+		"apiName":       objAPIName,
+		"includeDetail": includeDetail,
+	}
+	raw, err := c.Post(endpoint, data, true)
+	if err != nil {
+		return "", err
+	}
+	return gjson.Get(raw, "data").String(), err
+}
+
+func getEndpoint(objType, action string) (string, error) {
+	switch objType {
+	case ObjTypeCustom:
+		return fmt.Sprintf("/cgi/crm/custom/v2/data/%s", action), nil
+	case ObjTypePackage:
+		return fmt.Sprintf("/cgi/crm/v2/data/%s", action), nil
+	default:
+		return "", fmt.Errorf("invalid obj type: %s", objType)
+	}
 }
