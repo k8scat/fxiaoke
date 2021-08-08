@@ -73,40 +73,11 @@ type QueryResult struct {
 }
 
 type ChangeOwnerData struct {
-	Owner []string `json:"ownerId"`
-	ID    string   `json:"objectDataId"`
+	OwnerID []string `json:"ownerId"`
+	ObjID   string   `json:"objectDataId"`
 }
 
-func (c *Client) ListObjs(objType, objApiName string, searchQueryInfo *SearchQueryInfo) ([]json.RawMessage, error) {
-	var endpoint string
-	switch objType {
-	case ObjTypePackage:
-		endpoint = "/cgi/crm/v2/data/query"
-	case ObjTypeCustom:
-		endpoint = "/cgi/crm/custom/v2/data/query"
-	default:
-		return nil, fmt.Errorf("obj type not support, objType=%s", objType)
-	}
-
-	data := map[string]interface{}{
-		"data": map[string]interface{}{
-			"dataObjectApiName": objApiName,
-			"search_query_info": searchQueryInfo,
-		},
-	}
-	content, err := c.Post(endpoint, data, true)
-	if err != nil {
-		return nil, err
-	}
-	result := new(QueryResult)
-	err = json.Unmarshal([]byte(gjson.Get(content, "data").String()), result)
-	if err != nil {
-		return nil, err
-	}
-	return result.DataList, err
-}
-
-func (c *Client) ListAllObjs(objType, objApiName string, searchQueryInfo *SearchQueryInfo) (objs []json.RawMessage, err error) {
+func (c *Client) ListObjs(objType, objApiName string, searchQueryInfo *SearchQueryInfo, params map[string]interface{}) (objs []json.RawMessage, total int, err error) {
 	var endpoint string
 	switch objType {
 	case ObjTypePackage:
@@ -118,30 +89,49 @@ func (c *Client) ListAllObjs(objType, objApiName string, searchQueryInfo *Search
 		return
 	}
 
+	data := map[string]interface{}{
+		"data": map[string]interface{}{
+			"dataObjectApiName": objApiName,
+			"search_query_info": searchQueryInfo,
+		},
+	}
+	for k, v := range params {
+		data["data"].(map[string]interface{})[k] = v
+	}
+
+	var content string
+	content, err = c.Post(endpoint, data, true)
+	if err != nil {
+		return
+	}
+
+	result := new(QueryResult)
+	err = json.Unmarshal([]byte(gjson.Get(content, "data").String()), result)
+	if err != nil {
+		return
+	}
+	objs = result.DataList
+	total = result.Total
+	return
+}
+
+func (c *Client) ListAllObjs(objType, objApiName string, searchQueryInfo *SearchQueryInfo) (allObjs []json.RawMessage, err error) {
 	searchQueryInfo.Offset = 0
 	searchQueryInfo.Limit = 100
 	searchQueryInfo.Orders = append(searchQueryInfo.Orders, &QueryOrder{
 		FieldName: FieldAPINameCreateTime,
 		ASC:       true,
 	})
-	objs = make([]json.RawMessage, 0)
+	allObjs = make([]json.RawMessage, 0)
 	for {
-		data := map[string]interface{}{
-			"data": map[string]interface{}{
-				"dataObjectApiName": objApiName,
-				"search_query_info": searchQueryInfo,
-			},
-		}
-		var content string
-		if content, err = c.Post(endpoint, data, true); err != nil {
+		objs := make([]json.RawMessage, 0)
+		var total int
+		objs, total, err = c.ListObjs(objType, objApiName, searchQueryInfo, nil)
+		if err != nil {
 			return
 		}
-		result := new(QueryResult)
-		if err = json.Unmarshal([]byte(gjson.Get(content, "data").String()), result); err != nil {
-			return
-		}
-		objs = append(objs, result.DataList...)
-		if len(objs) == result.Total {
+		allObjs = append(allObjs, objs...)
+		if len(allObjs) >= total {
 			break
 		}
 		searchQueryInfo.Offset += searchQueryInfo.Limit
@@ -176,7 +166,7 @@ func (c *Client) GetObjByID(objType, objApiName, id string) (obj []byte, err err
 	return
 }
 
-func (c *Client) UpdateObj(objType string, obj map[string]interface{}) error {
+func (c *Client) UpdateObj(objType string, obj map[string]interface{}, params map[string]interface{}) error {
 	if obj == nil || obj["dataObjectApiName"] == "" || obj["_id"] == "" {
 		return fmt.Errorf("obj not valid, obj=%v", obj)
 	}
@@ -195,6 +185,9 @@ func (c *Client) UpdateObj(objType string, obj map[string]interface{}) error {
 		"data": map[string]interface{}{
 			"object_data": obj,
 		},
+	}
+	for k, v := range params {
+		data["data"].(map[string]interface{})[k] = v
 	}
 	_, err := c.Post(endpoint, data, true)
 	return err
@@ -273,7 +266,7 @@ func (c *Client) InvalidObj(objType, objAPIName, id string) error {
 	return err
 }
 
-func (c *Client) CreateObj(objType string, obj interface{}) (string, error) {
+func (c *Client) CreateObj(objType string, obj interface{}, params map[string]interface{}) (string, error) {
 	var endpoint string
 	switch objType {
 	case ObjTypeCustom:
@@ -287,6 +280,9 @@ func (c *Client) CreateObj(objType string, obj interface{}) (string, error) {
 		"data": map[string]interface{}{
 			"object_data": obj,
 		},
+	}
+	for k, v := range params {
+		data["data"].(map[string]interface{})[k] = v
 	}
 	raw, err := c.Post(endpoint, data, true)
 	if err != nil {
