@@ -180,7 +180,7 @@ func (c *Client) UpdateObj(objType string, obj map[string]interface{}, params ma
 		},
 	}
 	for k, v := range params {
-		data["data"].(map[string]interface{})[k] = v
+		data[k] = v
 	}
 	_, err = c.Post(endpoint, data, true)
 	return err
