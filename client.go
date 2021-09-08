@@ -129,6 +129,36 @@ func (c *Client) Post(endpoint string, data map[string]interface{}, auth bool) (
 	return
 }
 
+func (c *Client) RawPost(endpoint string, data map[string]interface{}, auth bool) (*http.Response, error) {
+	if endpoint == "" {
+		return nil, errors.New("endpoint cannot be empty")
+	}
+
+	var buf *bytes.Buffer
+	if data != nil {
+		if auth {
+			data["corpId"] = c.corpID
+			data["currentOpenUserId"] = c.userID
+			if err := c.RefreshAccessToken(); err != nil {
+				return nil, err
+			}
+			data["corpAccessToken"] = c.token
+		}
+		buf = &bytes.Buffer{}
+		if err := json.NewEncoder(buf).Encode(data); err != nil {
+			return nil, err
+		}
+	}
+
+	url := concatURL(BaseURL, endpoint)
+	req, err := http.NewRequest(http.MethodPost, url, buf)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Content-Type", "application/json")
+	return c.client.Do(req)
+}
+
 func (c *Client) RefreshAccessToken() error {
 	currentTime := time.Now().Unix()
 	if currentTime-c.tokenRefreshTime < c.tokenExpire {
@@ -174,4 +204,15 @@ func concatURL(base, endpoint string) string {
 		endpoint = fmt.Sprintf("/%s", endpoint)
 	}
 	return fmt.Sprintf("%s%s", base, endpoint)
+}
+
+func GetEndpoint(objType, action string) (string, error) {
+	switch objType {
+	case ObjTypeCustom:
+		return fmt.Sprintf("/cgi/crm/custom/v2/data/%s", action), nil
+	case ObjTypePackage:
+		return fmt.Sprintf("/cgi/crm/v2/data/%s", action), nil
+	default:
+		return "", fmt.Errorf("invalid obj type: %s", objType)
+	}
 }

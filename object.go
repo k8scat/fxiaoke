@@ -39,13 +39,13 @@ const (
 	FilterOperatorNotBetween = "NBETWEEN"
 	FilterOperatorEndWith    = "ENDWITH"
 
-	actionQuery       = "query"
-	actionGet         = "get"
-	actionInvalid     = "invalid"
-	actionChangeOwner = "changeOwner"
-	actionUpdate      = "update"
-	actionCreate      = "create"
-	actionDelete      = "delete"
+	ActionQuery       = "query"
+	ActionGet         = "get"
+	ActionInvalid     = "invalid"
+	ActionChangeOwner = "changeOwner"
+	ActionUpdate      = "update"
+	ActionCreate      = "create"
+	ActionDelete      = "delete"
 )
 
 type Object struct {
@@ -87,7 +87,7 @@ type ChangeOwnerData struct {
 
 func (c *Client) ListObjs(objType, objApiName string, searchQueryInfo *SearchQueryInfo, params map[string]interface{}) (objs []json.RawMessage, total int, err error) {
 	var endpoint string
-	endpoint, err = getEndpoint(objType, actionQuery)
+	endpoint, err = GetEndpoint(objType, ActionQuery)
 	if err != nil {
 		return
 	}
@@ -144,7 +144,7 @@ func (c *Client) ListAllObjs(objType, objApiName string, searchQueryInfo *Search
 
 func (c *Client) GetObjByID(objType, objApiName, id string) (obj []byte, err error) {
 	var endpoint string
-	endpoint, err = getEndpoint(objType, actionGet)
+	endpoint, err = GetEndpoint(objType, ActionGet)
 	if err != nil {
 		return
 	}
@@ -169,7 +169,7 @@ func (c *Client) UpdateObj(objType string, obj map[string]interface{}, params ma
 		return fmt.Errorf("obj not valid, obj=%v", obj)
 	}
 
-	endpoint, err := getEndpoint(objType, actionUpdate)
+	endpoint, err := GetEndpoint(objType, ActionUpdate)
 	if err != nil {
 		return err
 	}
@@ -194,7 +194,7 @@ func (c *Client) ChangeOwner(objType, objAPIName string, data []*ChangeOwnerData
 		return errors.New("objAPIName cannot be empty")
 	}
 
-	endpoint, err := getEndpoint(objType, actionChangeOwner)
+	endpoint, err := GetEndpoint(objType, ActionChangeOwner)
 	if err != nil {
 		return err
 	}
@@ -212,7 +212,7 @@ func (c *Client) ChangeOwner(objType, objAPIName string, data []*ChangeOwnerData
 // 只能删除已作废的对象
 // 该方法不支持 客户对象 中的 删除公海对象接口：https://open.fxiaoke.com/wiki.html#artiId=1258
 func (c *Client) DeleteObjs(objType, objAPIName string, idList []string) error {
-	endpoint, err := getEndpoint(objType, actionDelete)
+	endpoint, err := GetEndpoint(objType, ActionDelete)
 	if err != nil {
 		return err
 	}
@@ -229,7 +229,7 @@ func (c *Client) DeleteObjs(objType, objAPIName string, idList []string) error {
 
 // 作废对象
 func (c *Client) InvalidObj(objType, objAPIName, id string) error {
-	endpoint, err := getEndpoint(objType, actionInvalid)
+	endpoint, err := GetEndpoint(objType, ActionInvalid)
 	if err != nil {
 		return err
 	}
@@ -245,7 +245,7 @@ func (c *Client) InvalidObj(objType, objAPIName, id string) error {
 }
 
 func (c *Client) CreateObj(objType string, obj interface{}, params map[string]interface{}) (string, error) {
-	endpoint, err := getEndpoint(objType, actionCreate)
+	endpoint, err := GetEndpoint(objType, ActionCreate)
 	if err != nil {
 		return "", err
 	}
@@ -277,15 +277,4 @@ func (c *Client) DescribeObj(objAPIName string, includeDetail bool) (string, err
 		return "", err
 	}
 	return gjson.Get(raw, "data").String(), err
-}
-
-func getEndpoint(objType, action string) (string, error) {
-	switch objType {
-	case ObjTypeCustom:
-		return fmt.Sprintf("/cgi/crm/custom/v2/data/%s", action), nil
-	case ObjTypePackage:
-		return fmt.Sprintf("/cgi/crm/v2/data/%s", action), nil
-	default:
-		return "", fmt.Errorf("invalid obj type: %s", objType)
-	}
 }
