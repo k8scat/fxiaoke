@@ -46,6 +46,9 @@ const (
 	ActionUpdate      = "update"
 	ActionCreate      = "create"
 	ActionDelete      = "delete"
+
+	ParamTriggerWorkFlow     = "triggerWorkFlow"     // 触发工作流
+	ParamTriggerApprovalFlow = "triggerApprovalFlow" // 触发审批流
 )
 
 type Object struct {
