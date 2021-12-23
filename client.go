@@ -41,13 +41,14 @@ type Client struct {
 	permanentCode string
 	corpID        string
 	userID        string
+	params        map[string]interface{}
 
 	token            string
 	tokenExpire      int64
 	tokenRefreshTime int64
 }
 
-func NewClient(appID, appSecret, permanentCode, userID, corpID string) (*Client, error) {
+func NewClient(appID, appSecret, permanentCode, userID, corpID string, params map[string]interface{}) (*Client, error) {
 	if appID == "" {
 		return nil, errors.New("appID cannot be empty")
 	}
@@ -77,6 +78,9 @@ func NewClient(appID, appSecret, permanentCode, userID, corpID string) (*Client,
 			},
 		},
 	}
+	if params != nil {
+		client.params = params
+	}
 	return client, nil
 }
 
@@ -95,6 +99,11 @@ func (c *Client) Post(endpoint string, data map[string]interface{}, auth bool) (
 				return
 			}
 			data["corpAccessToken"] = c.token
+			if c.params != nil {
+				for s := range c.params {
+					data[s] = c.params[s]
+				}
+			}
 		}
 		buf = &bytes.Buffer{}
 		err = json.NewEncoder(buf).Encode(data)
